@@ -16,28 +16,18 @@ const ActiviesScreen = ({ navigation }) => {
   }, []);
 
   const ActivityItem = ({ item }) => {
-    const date = item.time_stamp.toDate();
-    const formattedDate = date.toLocaleDateString("ro-RO", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
     return (
       <View style={styles.activityItem}>
-        <Text style={styles.title}>{formattedDate}</Text>
+        <Text style={styles.title}>{item.time_stamp.toString()}</Text>
         <Text style={styles.description}>
-          <FontAwesome name="heartbeat" size={20} color="black" /> {item.puls}{" "}
+          <FontAwesome name="heartbeat" size={18} color="black" /> {item.puls}{" "}
           {item.puls > 0 ? "bpm" : ""}
-          {"     "}
-          <FontAwesome name="thermometer-half" size={20} color="black" />{" "}
+          {"  "}
+          <FontAwesome name="thermometer-half" size={18} color="black" />{" "}
           {item.temp} {item.temp > 0 ? "°C" : ""}
-          {"     "}
-          <FontAwesome name="tint" size={20} color="black" /> {item.umiditate}{" "}
-          {item.umiditate > 0 ? "%" : ""}
+          {"  "}
+          <FontAwesome name="tint" size={18} color="black" /> {item.umid}{" "}
+          {item.umid > 0 ? "%" : ""}
         </Text>
       </View>
     );
@@ -52,7 +42,7 @@ const ActiviesScreen = ({ navigation }) => {
           size={60}
           color="black"
         />
-        <Text style={{ fontSize: 20 }}>Nu există activități!</Text>
+        <Text style={{ fontSize: 20 }}>Nu există măsurători anterioare!</Text>
         <BottomMenu navigation={navigation} />
       </View>
     );
@@ -93,7 +83,7 @@ const styles = StyleSheet.create({
     marginBottom: 5,
   },
   description: {
-    fontSize: 18,
+    fontSize: 15,
     marginBottom: 5,
   },
 });

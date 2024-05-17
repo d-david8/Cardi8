@@ -9,6 +9,7 @@ import {
 } from "react-native";
 
 import styles from "../../styles/styles";
+import Toast from "react-native-toast-message";
 
 //import RNSmtpMailer from "react-native-smtp-mailer";
 
@@ -21,7 +22,28 @@ const SignUpScreen = () => {
   const [isLoading, setIsLoading] = useState(false);
 
   const sendEmail = () => {
+    if (!email || !fisrstName || !lastName || !phone) {
+      Toast.show({
+        type: "error",
+        text1: "Completati toate campurile",
+      });
+      return;
+    }
+    console.log(
+      "Email sent: " + email + " " + fisrstName + " " + lastName + " " + phone
+    );
     setIsLoading(true);
+    setEmail("");
+    setFirstName("");
+    setLastName("");
+    setPhone("");
+
+    Toast.show({
+      type: "success",
+      text1: "Cererea a fost trimisa cu succes",
+      text2: "Vei fi contactat in cel mai scurt timp",
+    });
+    setIsLoading(false);
   };
 
   return (

@@ -4,7 +4,6 @@ import BottomMenu from "../components/BottomMenu";
 import "firebase/firestore";
 import { useAuth } from "../contexts/AuthContext";
 import FirebaseService from "../services/FirebaseService";
-import { AntDesign } from "@expo/vector-icons";
 import { FontAwesome } from "@expo/vector-icons";
 
 const RecommendationsScreen = ({ navigation }) => {

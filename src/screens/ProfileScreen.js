@@ -10,12 +10,14 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { authentication } from "../firebase/config";
 import { signOut } from "firebase/auth";
+import { set } from "firebase/database";
+import { useEffect, useState } from "react";
 
 const ProfileScreen = () => {
   const { setLoggedInUser, userData, setUserData } = useAuth();
+  const [doctorName, setDoctorName] = useState("");
 
   const signOutUser = () => {
-    FirebaseService.stopSendingData();
     signOut(authentication)
       .then(() => {
         setLoggedInUser(null);
@@ -25,6 +27,14 @@ const ProfileScreen = () => {
         console.log(err);
       });
   };
+  async function fetchDoctorName() {
+    let docName = await FirebaseService.getDoctorName(userData.medic_id);
+    setDoctorName(docName);
+  }
+
+  useEffect(() => {
+    fetchDoctorName();
+  }, []);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -75,7 +85,7 @@ const ProfileScreen = () => {
           <View style={styles.detailsContainer2}>
             <View style={styles.detail2}>
               <Text style={styles.label}>Monitorizat de:</Text>
-              <Text style={styles.value}>{userData.nume_medic}</Text>
+              <Text style={styles.value}>{doctorName}</Text>
             </View>
             <View style={styles.detail2}>
               <Text style={styles.label}>Alergii:</Text>

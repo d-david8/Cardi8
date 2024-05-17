@@ -3,7 +3,7 @@ import { BleManager } from "react-native-ble-manager";
 const BluetoothService = {
   manager: new BleManager(),
   device: null,
-  characteristicUUID: "characteristicUUID", // înlocuiți cu UUID-ul caracteristicii Bluetooth
+  characteristicUUID: "00001101-0000-1000-8000-00805F9B34FB", // înlocuiți cu UUID-ul caracteristicii Bluetooth
 
   startReadingData: function () {
     // Scanează dispozitivele Bluetooth disponibile
@@ -14,7 +14,7 @@ const BluetoothService = {
       }
 
       // Conectează-te la dispozitivul Bluetooth atunci când este găsit
-      if (device.name === "Arduino") {
+      if (device.name === "HC-05") {
         // înlocuiți 'Arduino' cu numele dispozitivului dvs.
         this.manager.stopDeviceScan();
         device
@@ -25,6 +25,7 @@ const BluetoothService = {
 
             // Citește datele de la caracteristica Bluetooth și le exportă
             this.readData();
+            console.log("Reading data...");
           })
           .catch((error) => {
             console.error("Error connecting to device:", error);
@@ -40,7 +41,7 @@ const BluetoothService = {
         this.device
           .readCharacteristicForService("serviceUUID", this.characteristicUUID)
           .then((characteristic) => {
-            const data = characteristic.value.readInt32LE(); // convertim datele primite la integer
+            const data = characteristic.value; // convertim datele primite la integer
             // Exportăm datele către alt ecran
             // Aici puteți utiliza un mecanism de gestionare a stării sau puteți folosi un eveniment pentru a trimite datele către ecranul destinatar
             console.log("Received data:", data);

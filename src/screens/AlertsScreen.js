@@ -52,30 +52,18 @@ const AlertsScreen = () => {
           console.error("Error updating document: ", error);
         });
     };
-    const date = alert.time_stamp.toDate();
-    const formattedDate = date.toLocaleDateString("ro-RO", {
-      year: "numeric",
-      month: "2-digit",
-      day: "2-digit",
-    });
-    const formattedTime = date.toLocaleTimeString("ro-RO", {
-      hour: "2-digit",
-      minute: "2-digit",
-      second: "2-digit",
-      hour12: false,
-    });
 
     return (
       <View style={styles.alertItem}>
         <View style={styles.someStyleName}>
-          <Text style={styles.title}>{alert.tip_alarma}</Text>
+          <Text style={styles.title}>{alert.tip}</Text>
           <View style={styles.dateTimeContainer}>
-            <Text style={styles.date}>{formattedDate}</Text>
-            <Text style={styles.date}>{formattedTime}</Text>
+            <Text style={styles.date}>{alert.time_stamp}</Text>
           </View>
         </View>
 
         <Text style={styles.description}>{alert.descriere}</Text>
+        <Text style={styles.description}>{"Stare: " + alert.stare}</Text>
         <TextInput
           style={styles.commentInput}
           placeholder="Adauga comentariu"

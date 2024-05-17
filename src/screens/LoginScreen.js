@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -14,6 +14,8 @@ import { signInWithEmailAndPassword } from "firebase/auth";
 import { useAuth } from "../contexts/AuthContext";
 import styles from "../../styles/styles";
 import FirebaseService from "../services/FirebaseService";
+import BleManager from "react-native-ble-manager";
+import { PermissionsAndroid, Platform } from "react-native";
 
 const LoginScreen = ({ navigation }) => {
   const [email, setEmail] = React.useState("");
@@ -43,6 +45,33 @@ const LoginScreen = ({ navigation }) => {
       })
       .finally(() => setIsLoading(false));
   };
+
+  useEffect(() => {
+    // turn on bluetooth if it is not on
+    BleManager.enableBluetooth().then(() => {
+      console.log("Bluetooth is turned on!");
+    });
+
+    if (Platform.OS === "android" && Platform.Version >= 23) {
+      PermissionsAndroid.check(
+        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+      ).then((result) => {
+        if (result) {
+          console.log("Permission is OK");
+        } else {
+          PermissionsAndroid.request(
+            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
+          ).then((result) => {
+            if (result) {
+              console.log("User accept");
+            } else {
+              console.log("User refuse");
+            }
+          });
+        }
+      });
+    }
+  }, []);
 
   return (
     <View style={localStyles.container}>
