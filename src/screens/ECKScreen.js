@@ -9,30 +9,99 @@ import {
 import Svg, { Path } from "react-native-svg";
 import styles from "../../styles/styles";
 import BottomMenu from "../components/BottomMenu";
+import BluetoothSerial from "react-native-bluetooth-hc05";
+import FirebaseService from "../services/FirebaseService";
+import { useAuth } from "../contexts/AuthContext";
+
+const screenWidth = Dimensions.get("window").width;
+const screenHeight = Dimensions.get("window").height;
+const graphHeight = screenHeight * 0.6;
 
 const EcgScreen = ({ navigation }) => {
   const [ecgData, setEcgData] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
-
-  const screenWidth = Dimensions.get("window").width;
-  const screenHeight = Dimensions.get("window").height;
-
+  const { userData } = useAuth();
+  const delimiter = ";";
   useEffect(() => {
-    if (isGenerating) {
-      const intervalId = setInterval(generateRandomData, 1000);
-      return () => clearInterval(intervalId);
+    if (!isGenerating) {
+      BluetoothSerial.unsubscribe();
+    } else {
+      checkifConnected();
     }
   }, [isGenerating]);
 
-  const generateRandomData = () => {
-    const randomValue = Math.random() * 50 - 25; // Generate values between -25 and 25
-    setEcgData((prevData) => [...prevData, randomValue]);
-  };
+  // salvezi intr-un vector data datele primite de la bluetooth
 
+  readData = async () => {
+    console.log("here");
+    await BluetoothSerial.subscribe(delimiter)
+      .then(() => {
+        console.log("Subscribed for data with delimiter", delimiter);
+      })
+      .catch((err) => console.log("Error subscribing ", err));
+
+    BluetoothSerial.on("data", (data) => {
+      console.log("dataaici", data);
+      if (data.data.indexOf("/") == -1) {
+        console.log("nu intra");
+        if (data.data.indexOf("NAN") == -1) {
+          let value = parseInt(data.data);
+          //value = (value - 300) / 2;
+
+          setEcgData((prevData) => [...prevData, value]);
+          console.log(ecgData);
+
+          //console.log(ecgData);
+        }
+      }
+    }); // Add closing parenthesis and curly brace
+  };
+  checkifConnected = async () => {
+    const connected = await BluetoothSerial.isConnected();
+    BluetoothSerial.unsubscribe();
+    console.log(connected);
+    if (connected) {
+      await BluetoothSerial.write("a")
+        .then((res) => {
+          console.log("Succesfully send data to arduino");
+          readData();
+        })
+        .catch((err) => {
+          console.log(err);
+        });
+      //BluetoothSerial.subscribe("\n");
+      //console.log(ecgData);
+    }
+  };
   const handleStartStop = () => {
-    setIsGenerating((prevState) => !prevState);
+    if (isGenerating) {
+      console.log(ecgData);
+      let currentDate = new Date();
+      const dateString =
+        ("0" + currentDate.getDate()).slice(-2) +
+        "." +
+        ("0" + (currentDate.getMonth() + 1)).slice(-2) +
+        "." +
+        currentDate.getFullYear() +
+        " - " +
+        ("0" + currentDate.getHours()).slice(-2) +
+        ":" +
+        ("0" + currentDate.getMinutes()).slice(-2) +
+        ":" +
+        ("0" + currentDate.getSeconds()).slice(-2);
+      const ecgtoSave = {
+        data: ecgData,
+        time_stam: dateString,
+      };
+      FirebaseService.saveECGdata(userData.ID, ecgtoSave);
+      setIsGenerating(false);
+    } else {
+      setIsGenerating(true);
+    }
   };
-
+  const normalizeValue = (value, min, max, newMin, newMax) => {
+    return ((value - min) / (max - min)) * (newMax - newMin) + newMin;
+  };
   return (
     <View style={localStyles.container}>
       <View style={localStyles.ecgContainer}>
@@ -46,12 +115,18 @@ const EcgScreen = ({ navigation }) => {
             stroke="red"
             strokeWidth="5"
             d={
-              `M0,${screenHeight * 0.3} ` +
+              `M0,${graphHeight / 2} ` +
               ecgData
-                .map(
-                  (value, index) =>
-                    `L${index * 10},${screenHeight * 0.3 - value}`
-                )
+                .map((value, index) => {
+                  const normalizedValue = normalizeValue(
+                    value,
+                    200,
+                    600,
+                    0,
+                    graphHeight
+                  );
+                  return `L${index * 10},${graphHeight - normalizedValue}`;
+                })
                 .join(" ")
             }
           />

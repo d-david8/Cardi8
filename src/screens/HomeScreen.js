@@ -3,91 +3,158 @@ import { View, StyleSheet, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Animatable from "react-native-animatable";
 import BottomMenu from "../components/BottomMenu";
-import BleManager from "react-native-ble-manager";
 import {
   accelerometer,
   setUpdateIntervalForType,
   SensorTypes,
 } from "react-native-sensors";
-import { map, filter } from "rxjs/operators";
 import { useAuth } from "../contexts/AuthContext";
 import FirebaseService from "../services/FirebaseService";
-import { limit } from "firebase/firestore";
-import { set } from "firebase/database";
 import Toast from "react-native-toast-message";
+import BluetoothSerial from "react-native-bluetooth-hc05";
+import { useRoute } from "@react-navigation/native";
+import { useFocusEffect } from "@react-navigation/native";
 
 const HomeScreen = ({ navigation }) => {
-  const [heartRate, setHeartRate] = useState(0);
-  const [temperature, setTemperature] = useState(0);
-  const [humidity, setHumidity] = useState(0);
-  const [isConnected, setIsConnected] = useState(false);
-  const [data, setData] = useState({ x: 0, y: 0, z: 0 });
-  const [isMoving, setMoving] = useState(false);
-  const [movments, setMovments] = useState([]);
-  let limite_medic = null;
-
+  const route = useRoute();
+  const [data, setData] = useState({
+    heartRate: 0,
+    temperature: 0,
+    humidity: 0,
+  });
+  const [isMoving, setIsMoving] = useState(false);
   const [masuratori, setMasuratori] = useState([]);
-
+  const [isConnected, setIsConnected] = useState(false);
+  const [isAlaramSet, setIsAlramSet] = useState(false);
   const { userData } = useAuth();
-  if (userData) {
-    limite_medic = userData["limite_medic"];
-    if (limite_medic.puls_max_miscare == "") {
-      limite_medic = null;
-    }
-  }
-  //const parameters = userData.limite_medic ? userData.limite_medic : null;
 
-  setUpdateIntervalForType(SensorTypes.accelerometer, 1000);
+  useFocusEffect(
+    React.useCallback(() => {
+      console.log("rr: ", route.name);
+      if (route.name === "Home") {
+        setMasuratori([]);
+        subscribeTo();
+      } else {
+        setMasuratori([]);
+        BluetoothSerial.unsubscribe();
+      }
+    }, [route])
+  );
 
-  const peripherals = new Map();
-  const [connectedDevices, setConnectedDevices] = useState([]);
+  subscribeTo = async () => {
+    const delimiter = "\n";
+    await BluetoothSerial.subscribe(delimiter)
+      .then(() => {
+        console.log("Subscribed for data with delimiter", delimiter);
+        setIsConnected(true);
+      })
+      .catch((err) => console.log("Error subscribing ", err));
+    BluetoothSerial.on("data", (data) => {
+      if (data.data.indexOf("/") != -1) {
+        console.log(data);
+        let listData = data.data.split("/");
+        let hRate = 0;
+        let tmp = 0;
+        let hum = 0;
 
-  const handleGetConnectedDevices = () => {
-    BleManager.getConnectedPeripherals([]).then((results) => {
-      if (results.length === 0) {
-        console.log("No connected bluetooth devices");
-        BleManager.getBondedPeripherals([]).then((results) => {
-          if (results.length === 0) {
-            console.log("No associated bluetooth devices");
-          } else {
-            for (let i = 0; i < results.length; i++) {
-              let peripheral = results[i];
-              console.log("Found associated device: " + peripheral.name);
-              if (peripheral.name === "HC-05") {
-                console.log("Found HC-05 device");
-                peripheral.connected = true;
-                peripherals.set(peripheral.id, peripheral);
-                console.log("HC-05 device is already connected");
-              }
+        if (
+          listData.length == 3 &&
+          listData[0].indexOf("NAN") == -1 &&
+          listData[1].indexOf("NAN") == -1 &&
+          listData[2].indexOf("NAN") == -1
+        ) {
+          console.log("ldata: ", listData);
+          hRate = parseInt(listData[0]);
+          tmp = parseFloat(listData[2]);
+          hum = parseFloat(listData[1]);
+          setData({
+            heartRate: hRate,
+            temperature: tmp,
+            humidity: hum,
+          });
+          let currentDate = new Date();
+          const dateString =
+            ("0" + currentDate.getDate()).slice(-2) +
+            "." +
+            ("0" + (currentDate.getMonth() + 1)).slice(-2) +
+            "." +
+            currentDate.getFullYear() +
+            " - " +
+            ("0" + currentDate.getHours()).slice(-2) +
+            ":" +
+            ("0" + currentDate.getMinutes()).slice(-2) +
+            ":" +
+            ("0" + currentDate.getSeconds()).slice(-2);
+          const newValues = {
+            puls: hRate,
+            temp: tmp,
+            umid: hum,
+            time_stamp: dateString,
+          };
+          console.log("masuratori", masuratori);
+          setMasuratori((prev) => {
+            const updatedMasuratori = [...prev, newValues];
+            if (updatedMasuratori.length === 3) {
+              //saveMeasurement(updatedMasuratori);
+              return [];
             }
-          }
-        });
+            return updatedMasuratori;
+          });
+          //verifyLimits();
+        }
       }
     });
   };
 
-  const getRandomValues = () => {
-    const minHeartRate = 80;
-    const maxHeartRate = 90;
-    const heartRate =
-      Math.floor(Math.random() * (maxHeartRate - minHeartRate + 1)) +
-      minHeartRate;
-    setHeartRate(heartRate);
+  connectToDevice = async () => {
+    try {
+      if (!BluetoothSerial) {
+        console.log("BluetoothSerial is not defined");
+        return;
+      }
 
-    const minTemperature = 29;
-    const maxTemperature = 30;
-    const temperature =
-      Math.floor(Math.random() * (maxTemperature - minTemperature + 1)) +
-      minTemperature;
-    setTemperature(temperature);
+      await BluetoothSerial.enable();
+      const devices = await BluetoothSerial.list();
+      console.log("Available devices:", devices);
 
-    const minHumidity = 60;
-    const maxHumidity = 60;
-    const humidity =
-      Math.floor(Math.random() * (maxHumidity - minHumidity + 1)) + minHumidity;
-    setHumidity(humidity);
+      if (!devices || devices.length === 0) {
+        console.log("No devices found");
+        return;
+      }
+
+      const device = devices.find((d) => d.name === "HC-05");
+
+      if (device) {
+        console.log("Found device:", device);
+        await BluetoothSerial.connect(device.id);
+
+        const connected = await BluetoothSerial.isConnected();
+        if (connected) {
+          console.log("Connected to device:", device.name);
+        } else {
+          console.log("Failed to connect to device");
+        }
+      } else {
+        console.log("Device not found ");
+      }
+    } catch (error) {
+      console.log("Error connecting to device:", error);
+    }
   };
+
+  useEffect(() => {
+    connectToDevice();
+    return () => {
+      // Cleanup subscriptions and connections on component unmount
+      BluetoothSerial.disconnect();
+      BluetoothSerial.unsubscribe();
+    };
+  }, []);
+
   const displayAlertOnScreen = (alert) => {
+    if (isAlaramSet) {
+      return;
+    }
     Toast.show({
       type: "info",
       position: "top",
@@ -101,178 +168,13 @@ const HomeScreen = ({ navigation }) => {
         navigation.navigate("Alerts");
       },
     });
+    setIsAlramSet(true);
   };
 
-  const verifyLimits = () => {
-    let currentDate = new Date();
-    const dateString =
-      ("0" + currentDate.getDate()).slice(-2) +
-      "." +
-      ("0" + (currentDate.getMonth() + 1)).slice(-2) +
-      "." +
-      currentDate.getFullYear() +
-      " - " +
-      ("0" + currentDate.getHours()).slice(-2) +
-      ":" +
-      ("0" + currentDate.getMinutes()).slice(-2) +
-      ":" +
-      ("0" + currentDate.getSeconds()).slice(-2);
+  verifyLimits = () => {
     console.log("Verifying limits");
-    //console.log("Is moving: " + isMoving);
-    if (isMoving) {
-      console.log("Is moving");
-      if (
-        (heartRate > limite_medic.puls_max_miscare ||
-          heartRate < limite_medic.puls_min_miscare) &&
-        heartRate !== 0
-      ) {
-        const alert = {
-          tip: "Puls",
-          descriere:
-            "Interval puls: " +
-            limite_medic.puls_min_miscare +
-            " - " +
-            limite_medic.puls_max_miscare +
-            " -> Limita depasita " +
-            (heartRate < limite_medic.puls_min_miscare
-              ? "inferior: "
-              : "superior: ") +
-            heartRate +
-            " bpm",
-          stare: "Miscare",
-          time_stamp: dateString,
-          comentariu: "",
-        };
-        FirebaseService.addPatientAlert(userData.ID, alert);
-        displayAlertOnScreen(alert);
-      } else if (
-        (temperature > limite_medic.temp_max_miscare ||
-          temperature < limite_medic.temp_min_miscare) &&
-        temperature !== 0
-      ) {
-        console.log("Temperature: " + temperature);
-        const alert = {
-          tip: "Temperatura",
-          descriere:
-            "Interval temperatura: " +
-            limite_medic.temp_min_miscare +
-            " - " +
-            limite_medic.temp_max_miscare +
-            " -> Limita depasita " +
-            (temperature < limite_medic.temp_min_miscare
-              ? "inferior: "
-              : "superior: ") +
-            temperature,
-          stare: "Miscare",
-          time_stamp: dateString,
-          comentariu: "",
-        };
-        FirebaseService.addPatientAlert(userData.ID, alert);
-        displayAlertOnScreen(alert);
-      } else if (
-        (humidity > limite_medic.umid_max_miscare ||
-          humidity < limite_medic.umid_min_miscare) &&
-        humidity !== 0
-      ) {
-        const alert = {
-          tip: "Umiditate",
-          descriere:
-            "Interval umiditate: " +
-            limite_medic.umid_min_miscare +
-            " - " +
-            limite_medic.umid_max_miscare +
-            " -> Limita depasita " +
-            (humidity < limite_medic.umid_min_miscare
-              ? "inferior: "
-              : "superior: ") +
-            humidity,
-          stare: "Miscare",
-          time_stamp: dateString,
-          comentariu: "",
-        };
-        FirebaseService.addPatientAlert(userData.ID, alert);
-        displayAlertOnScreen(alert);
-      }
-    } else {
-      console.log("Is not moving");
-      if (
-        (heartRate > limite_medic.puls_max_repaus ||
-          heartRate < limite_medic.puls_min_repaus) &&
-        heartRate !== 0
-      ) {
-        const alert = {
-          tip: "Puls",
-          descriere:
-            "Interval puls: " +
-            limite_medic.puls_min_repaus +
-            " - " +
-            limite_medic.puls_max_repaus +
-            " -> Limita depasita " +
-            (heartRate < limite_medic.puls_min_repaus
-              ? "inferior: "
-              : "superior: ") +
-            heartRate +
-            " bpm",
-          stare: "Repaus",
-          time_stamp: dateString,
-          comentariu: "",
-        };
-        FirebaseService.addPatientAlert(userData.ID, alert);
-        displayAlertOnScreen(alert);
-      } else if (
-        (temperature > limite_medic.temp_max_repaus ||
-          temperature < limite_medic.temp_min_repaus) &&
-        temperature !== 0
-      ) {
-        const alert = {
-          tip: "Temperatura",
-          descriere:
-            "Interval temperatura: " +
-            limite_medic.temp_min_repaus +
-            " - " +
-            limite_medic.temp_max_repaus +
-            " -> Limita depasita " +
-            (heartRate < limite_medic.puls_min_repaus
-              ? "inferior: "
-              : "superioar: ") +
-            temperature,
-          stare: "Repaus",
-          time_stamp: dateString,
-          comentariu: "",
-        };
-        FirebaseService.addPatientAlert(userData.ID, alert);
-        displayAlertOnScreen(alert);
-      } else if (
-        (humidity > limite_medic.umid_max_repaus ||
-          humidity < limite_medic.umid_min_repaus) &&
-        humidity !== 0
-      ) {
-        const alert = {
-          tip: "Umiditate",
-          descriere:
-            "Interval umiditate: " +
-            limite_medic.umid_min_repaus +
-            " - " +
-            limite_medic.umid_max_repaus +
-            " -> Limita depasita " +
-            (humidity < limite_medic.umid_min_repaus
-              ? "inferior: "
-              : "superior: ") +
-            humidity,
-          stare: "Repaus",
-          time_stamp: dateString,
-          comentariu: "",
-        };
-        FirebaseService.addPatientAlert(userData.ID, alert);
-        displayAlertOnScreen(alert);
-      }
-    }
-  };
-
-  //adaugare masuratori la fiecare 30 de secunde
-  useEffect(() => {
-    const heartInterval = setInterval(() => {
-      getRandomValues();
+    console.log(isMoving);
+    if (userData.limite_medic != null && isAlaramSet == false) {
       let currentDate = new Date();
       const dateString =
         ("0" + currentDate.getDate()).slice(-2) +
@@ -286,85 +188,202 @@ const HomeScreen = ({ navigation }) => {
         ("0" + currentDate.getMinutes()).slice(-2) +
         ":" +
         ("0" + currentDate.getSeconds()).slice(-2);
-      const newValues = {
-        puls: heartRate,
-        temp: temperature,
-        umid: humidity,
-        time_stamp: dateString,
-      };
-      setMasuratori((prevMasuratori) => [...prevMasuratori, newValues]);
-      if (limite_medic) {
-        //console.log("moooving", isMoving);
-        verifyLimits();
-      }
-    }, 6000000);
 
-    /*
-    if (!isConnected) {
-      BleManager.start({ showAlert: false }).then(() => {
-        console.log("BleManager initialized");
-        handleGetConnectedDevices();
-      });
-      setIsConnected(true);
-    }*/
-    const subscription = accelerometer.subscribe(({ x, y, z, timestamp }) => {
-      const viteza = Math.sqrt(x * x + y * y + z * z);
-      setMovments((prevMovments) => [
-        ...prevMovments,
-        parseFloat(viteza.toFixed(2)),
-      ]);
-      if (movments.length > 10) {
-        avg = movments.reduce((a, b) => a + b, 0) / movments.length;
-        //console.log("avg", avg);
-        if (avg > 11.0) {
-          setMoving(true);
-        } else {
-          setMoving(false);
+      //console.log("Is moving: " + isMoving);
+      if (isMoving) {
+        console.log("Is moving");
+        if (
+          (data.heartRate > userData.limite_medic.puls_max_miscare ||
+            data.heartRate < userData.limite_medic.puls_min_miscare) &&
+          data.heartRate !== 0
+        ) {
+          const alert = {
+            tip: "Puls",
+            descriere:
+              "Interval puls: " +
+              userData.limite_medic.puls_min_miscare +
+              " - " +
+              userData.limite_medic.puls_max_miscare +
+              " -> Limita depasita " +
+              (data.heartRate < userData.limite_medic.puls_min_miscare
+                ? "inferior: "
+                : "superior: ") +
+              data.heartRate +
+              " bpm",
+            stare: "Miscare",
+            time_stamp: dateString,
+            comentariu: "",
+          };
+          FirebaseService.addPatientAlert(userData.ID, alert);
+          displayAlertOnScreen(alert);
+        } else if (
+          (data.temperature > userData.limite_medic.temp_max_miscare ||
+            data.temperature < userData.limite_medic.temp_min_miscare) &&
+          data.temperature !== 0
+        ) {
+          console.log("data.Temperature: " + data.temperature);
+          const alert = {
+            tip: "Temperatura",
+            descriere:
+              "Interval temperatura: " +
+              userData.limite_medic.temp_min_miscare +
+              " - " +
+              userData.limite_medic.temp_max_miscare +
+              " -> Limita depasita " +
+              (data.temperature < userData.limite_medic.temp_min_miscare
+                ? "inferior: "
+                : "superior: ") +
+              data.temperature,
+            stare: "Miscare",
+            time_stamp: dateString,
+            comentariu: "",
+          };
+          FirebaseService.addPatientAlert(userData.ID, alert);
+          displayAlertOnScreen(alert);
+        } else if (
+          (data.humidity > userData.limite_medic.umid_max_miscare ||
+            data.humidity < userData.limite_medic.umid_min_miscare) &&
+          data.humidity !== 0
+        ) {
+          const alert = {
+            tip: "Umiditate",
+            descriere:
+              "Interval umiditate: " +
+              userData.limite_medic.umid_min_miscare +
+              " - " +
+              userData.limite_medic.umid_max_miscare +
+              " -> Limita depasita " +
+              (data.humidity < userData.limite_medic.umid_min_miscare
+                ? "inferior: "
+                : "superior: ") +
+              data.humidity,
+            stare: "Miscare",
+            time_stamp: dateString,
+            comentariu: "",
+          };
+          FirebaseService.addPatientAlert(userData.ID, alert);
+          displayAlertOnScreen(alert);
         }
-        setMovments([]);
+      } else {
+        console.log("Is not moving");
+        if (
+          (data.heartRate > userData.limite_medic.puls_max_repaus ||
+            data.heartRate < userData.limite_medic.puls_min_repaus) &&
+          data.heartRate !== 0
+        ) {
+          const alert = {
+            tip: "Puls",
+            descriere:
+              "Interval puls: " +
+              userData.limite_medic.puls_min_repaus +
+              " - " +
+              userData.limite_medic.puls_max_repaus +
+              " -> Limita depasita " +
+              (data.heartRate < userData.limite_medic.puls_min_repaus
+                ? "inferior: "
+                : "superior: ") +
+              data.heartRate +
+              " bpm",
+            stare: "Repaus",
+            time_stamp: dateString,
+            comentariu: "",
+          };
+          FirebaseService.addPatientAlert(userData.ID, alert);
+          displayAlertOnScreen(alert);
+        } else if (
+          (data.temperature > userData.limite_medic.temp_max_repaus ||
+            data.temperature < userData.limite_medic.temp_min_repaus) &&
+          data.temperature !== 0
+        ) {
+          const alert = {
+            tip: "Temperatura",
+            descriere:
+              "Interval temperatura: " +
+              userData.limite_medic.temp_min_repaus +
+              " - " +
+              userData.limite_medic.temp_max_repaus +
+              " -> Limita depasita " +
+              (data.heartRate < userData.limite_medic.puls_min_repaus
+                ? "inferior: "
+                : "superioar: ") +
+              data.temperature,
+            stare: "Repaus",
+            time_stamp: dateString,
+            comentariu: "",
+          };
+          FirebaseService.addPatientAlert(userData.ID, alert);
+          displayAlertOnScreen(alert);
+        } else if (
+          (data.humidity > userData.limite_medic.umid_max_repaus ||
+            data.humidity < userData.limite_medic.umid_min_repaus) &&
+          data.humidity !== 0
+        ) {
+          const alert = {
+            tip: "Umiditate",
+            descriere:
+              "Interval umiditate: " +
+              userData.limite_medic.umid_min_repaus +
+              " - " +
+              userData.limite_medic.umid_max_repaus +
+              " -> Limita depasita " +
+              (data.humidity < userData.limite_medic.umid_min_repaus
+                ? "inferior: "
+                : "superior: ") +
+              data.humidity,
+            stare: "Repaus",
+            time_stamp: dateString,
+            comentariu: "",
+          };
+          FirebaseService.addPatientAlert(userData.ID, alert);
+          displayAlertOnScreen(alert);
+        }
       }
-      //console.log(isMoving + " " + Math.sqrt(x * x + y * y + z * z));
-    });
+    }
+  };
 
-    setUpdateIntervalForType(SensorTypes.accelerometer, 1000);
-
-    return () => {
-      clearInterval(heartInterval);
-      subscription.unsubscribe();
-    };
-  }, [isMoving, heartRate, temperature, humidity]);
-
-  useEffect(() => {
-    if (masuratori.length === 3) {
-      let newValues = {
-        puls: (
-          (masuratori[0].puls + masuratori[1].puls + masuratori[2].puls) /
-          3
-        ).toFixed(2),
-        temp: (
-          (masuratori[0].temp + masuratori[1].temp + masuratori[2].temp) /
-          3
-        ).toFixed(2),
-        umid: (
-          (masuratori[0].umid + masuratori[1].umid + masuratori[2].umid) /
-          3
-        ).toFixed(2),
-        time_stamp: masuratori[2].time_stamp,
-      };
+  saveMeasurement = (measurements) => {
+    const average = (values) =>
+      (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2);
+    const [puls, temp, umid] = ["puls", "temp", "umid"].map((key) =>
+      average(measurements.map((m) => m[key]))
+    );
+    const time_stamp = measurements[measurements.length - 1].time_stamp;
+    const newValues = { puls, temp, umid, time_stamp };
+    //console.log("userData", userData);
+    if (userData && newValues) {
       FirebaseService.addMeasurementToPatient(userData.ID, newValues);
       setMasuratori([]);
     }
-  }, [masuratori]);
+  };
+  useEffect(() => {
+    const movementData = [];
+    setUpdateIntervalForType(SensorTypes.accelerometer, 1000);
 
+    const subscription = accelerometer.subscribe(({ x, y, z }) => {
+      const speed = Math.sqrt(x * x + y * y + z * z);
+      movementData.push(parseFloat(speed.toFixed(2)));
+
+      if (movementData.length >= 10) {
+        const avg =
+          movementData.reduce((a, b) => a + b, 0) / movementData.length;
+        setIsMoving(avg > 12.0);
+        movementData.length = 0; // Clear the array for next batch
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, []);
   return (
     <View style={styles.container}>
       <View style={styles.topLeft}>
         <Ionicons name="thermometer-outline" size={60} color="black" />
-        <Text style={styles.text}>{temperature}°C</Text>
+        <Text style={styles.text}>{data.temperature}°C</Text>
       </View>
       <View style={styles.topRight}>
         <Ionicons name="water-outline" size={60} color="black" />
-        <Text style={styles.text}>{humidity}%</Text>
+        <Text style={styles.text}>{data.humidity}%</Text>
       </View>
       <View style={styles.center}>
         <Animatable.View
@@ -374,14 +393,9 @@ const HomeScreen = ({ navigation }) => {
           style={styles.heart}
         >
           <Ionicons name="heart" size={350} color="#C62A47" />
-          <Text style={styles.heartRate}>{heartRate}</Text>
+          <Text style={styles.heartRate}>{data.heartRate}</Text>
         </Animatable.View>
       </View>
-      {connectedDevices.map((device) => (
-        <TouchableOpacity key={device.id}>
-          <Text>{device.name}</Text>
-        </TouchableOpacity>
-      ))}
       <BottomMenu navigation={navigation} />
     </View>
   );

@@ -2,12 +2,8 @@ import firebase from "firebase/compat/app";
 import "firebase/compat/firestore";
 import { db } from "../firebase/config";
 
-let intervalId = null;
-
 const FirebaseService = {
-  initialize: (uid) => {
-    //FirebaseService.startSendingData(uid);
-  },
+  initialize: () => {},
   getDoctorName: (doctorId) => {
     return db
       .collection("medici")
@@ -44,38 +40,20 @@ const FirebaseService = {
       });
   },
 
-  // startSendingData: (uid) => {
-  //   intervalId = setInterval(() => {
-  //     const newMeasurement = {
-  //       puls: Math.floor(Math.random() * 100) + 60,
-  //       temp: Math.floor(Math.random() * 10) + 35,
-  //       umiditate: Math.floor(Math.random() * 10) + 50,
-  //       time_stamp: new Date(),
-  //     };
-  //     if (
-  //       newMeasurement.puls > 100 ||
-  //       newMeasurement.temp > 40 ||
-  //       newMeasurement.umiditate > 60
-  //     ) {
-  //       FirebaseService.addPatientAlert(uid, {
-  //         time_stamp: new Date(),
-  //         tip_alarma:
-  //           newMeasurement.puls > 100
-  //             ? "Puls ridicat"
-  //             : newMeasurement.temp > 40
-  //             ? "Temperatură ridicată"
-  //             : "Umiditate ridicată",
-  //         descriere: "Pacientul a depășit limitele normale",
-  //         comentariu: "",
-  //       });
-  //     }
-  //   }, 600000);
-  // },
-  // stopSendingData: () => {
-  //   clearInterval(intervalId);
-  // },
+  saveECGdata: (patientId, ecgData) => {
+    db.collection("pacienti")
+      .doc(patientId)
+      .update({
+        ecg: ecgData,
+      })
+      .then(() => {
+        console.log("Ecg added");
+      })
+      .catch((error) => {
+        console.error("Error adding ecg: ", error);
+      });
+  },
 
-  //done
   getMeasurementsForPatient: (patientId) => {
     return db
       .collection("pacienti")
@@ -86,7 +64,7 @@ const FirebaseService = {
           return doc.data().masuratori.slice(-30).reverse();
         } else {
           console.log("No such document!");
-          return [];
+          return null;
         }
       })
       .catch((error) => {
@@ -95,6 +73,21 @@ const FirebaseService = {
       });
   },
   //done
+  getUserLimits: (patientId) => {
+    return db
+      .collection("pacienti")
+      .doc(patientId)
+      .get()
+      .then((doc) => {
+        if (doc.exists) {
+          return { limite_medic: doc.data().limite_medic };
+        }
+      })
+      .catch((error) => {
+        console.log("Error getting limits", error);
+        return null;
+      });
+  },
   getPatientData: (patientId) => {
     return db
       .collection("pacienti")

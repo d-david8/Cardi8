@@ -49,29 +49,33 @@ const LoginScreen = ({ navigation }) => {
   useEffect(() => {
     // turn on bluetooth if it is not on
     BleManager.enableBluetooth().then(() => {
-      console.log("Bluetooth is turned on!");
+      requestBluetoothPermission();
     });
-
-    if (Platform.OS === "android" && Platform.Version >= 23) {
-      PermissionsAndroid.check(
-        PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-      ).then((result) => {
-        if (result) {
-          console.log("Permission is OK");
-        } else {
-          PermissionsAndroid.request(
-            PermissionsAndroid.PERMISSIONS.ACCESS_FINE_LOCATION
-          ).then((result) => {
-            if (result) {
-              console.log("User accept");
-            } else {
-              console.log("User refuse");
-            }
-          });
-        }
-      });
-    }
   }, []);
+
+  async function requestBluetoothPermission() {
+    try {
+      const granted = await PermissionsAndroid.request(
+        PermissionsAndroid.PERMISSIONS.ACCESS_COARSE_LOCATION,
+        {
+          title: "Bluetooth Permission",
+          message:
+            "This app needs access to your Bluetooth " +
+            "so it can connect to devices.",
+          buttonNeutral: "Ask Me Later",
+          buttonNegative: "Cancel",
+          buttonPositive: "OK",
+        }
+      );
+      if (granted === PermissionsAndroid.RESULTS.GRANTED) {
+        console.log("You can use the Bluetooth");
+      } else {
+        console.log("Bluetooth permission denied");
+      }
+    } catch (err) {
+      console.warn(err);
+    }
+  }
 
   return (
     <View style={localStyles.container}>

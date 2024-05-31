@@ -7,7 +7,12 @@ export const AuthProvider = ({ children }) => {
   const [userData, setUserData] = React.useState(null);
   return (
     <AuthContext.Provider
-      value={{ loggedInUser, setLoggedInUser, userData, setUserData }}
+      value={{
+        loggedInUser,
+        setLoggedInUser,
+        userData,
+        setUserData,
+      }}
     >
       {children}
     </AuthContext.Provider>

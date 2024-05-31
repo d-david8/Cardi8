@@ -7,7 +7,6 @@ import { NavigationContainer } from "@react-navigation/native";
 import { AuthProvider, useAuth } from "./src/contexts/AuthContext";
 import GuestStack from "./src/navigation/GuestStack";
 import AppStack from "./src/navigation/AppStack";
-import BTScreen from "./src/screens/BTScreen";
 
 const AppContent = () => {
   const { loggedInUser } = useAuth();

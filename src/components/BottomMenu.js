@@ -1,6 +1,7 @@
 import React from "react";
 import { View, Text, TouchableOpacity } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
+import { useAuth } from "../contexts/AuthContext";
 
 const BottomMenu = ({ navigation }) => {
   return (
@@ -16,7 +17,9 @@ const BottomMenu = ({ navigation }) => {
       </TouchableOpacity>
       <TouchableOpacity
         style={styles.menuItem}
-        onPress={() => navigation.navigate("ECK")}
+        onPress={() => {
+          navigation.navigate("ECK");
+        }}
       >
         <Ionicons name="pulse" size={30} color="white" />
         <Text style={{ color: "white" }}>ECG</Text>
