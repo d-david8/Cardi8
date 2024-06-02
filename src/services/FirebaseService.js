@@ -47,7 +47,7 @@ const FirebaseService = {
         ecg: ecgData,
       })
       .then(() => {
-        console.log("Ecg added");
+        console.log("Ecg added ", ecgData);
       })
       .catch((error) => {
         console.error("Error adding ecg: ", error);

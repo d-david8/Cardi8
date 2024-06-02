@@ -21,44 +21,27 @@ const EcgScreen = ({ navigation }) => {
   const [ecgData, setEcgData] = useState([]);
   const [isGenerating, setIsGenerating] = useState(false);
   const { userData } = useAuth();
-  const delimiter = ";";
   useEffect(() => {
-    if (!isGenerating) {
-      BluetoothSerial.unsubscribe();
-    } else {
+    if (isGenerating) {
       checkifConnected();
     }
   }, [isGenerating]);
 
-  // salvezi intr-un vector data datele primite de la bluetooth
-
   readData = async () => {
     console.log("here");
-    await BluetoothSerial.subscribe(delimiter)
-      .then(() => {
-        console.log("Subscribed for data with delimiter", delimiter);
-      })
-      .catch((err) => console.log("Error subscribing ", err));
 
     BluetoothSerial.on("data", (data) => {
       console.log("dataaici", data);
       if (data.data.indexOf("/") == -1) {
-        console.log("nu intra");
         if (data.data.indexOf("NAN") == -1) {
           let value = parseInt(data.data);
-          //value = (value - 300) / 2;
-
           setEcgData((prevData) => [...prevData, value]);
-          console.log(ecgData);
-
-          //console.log(ecgData);
         }
       }
-    }); // Add closing parenthesis and curly brace
+    });
   };
   checkifConnected = async () => {
     const connected = await BluetoothSerial.isConnected();
-    BluetoothSerial.unsubscribe();
     console.log(connected);
     if (connected) {
       await BluetoothSerial.write("a")
@@ -69,12 +52,11 @@ const EcgScreen = ({ navigation }) => {
         .catch((err) => {
           console.log(err);
         });
-      //BluetoothSerial.subscribe("\n");
-      //console.log(ecgData);
     }
   };
   const handleStartStop = () => {
     if (isGenerating) {
+      BluetoothSerial.write("a");
       console.log(ecgData);
       let currentDate = new Date();
       const dateString =
@@ -113,19 +95,19 @@ const EcgScreen = ({ navigation }) => {
           <Path
             fill="none"
             stroke="red"
-            strokeWidth="5"
+            strokeWidth="3"
             d={
               `M0,${graphHeight / 2} ` +
               ecgData
                 .map((value, index) => {
                   const normalizedValue = normalizeValue(
                     value,
-                    200,
-                    600,
+                    0,
+                    700,
                     0,
                     graphHeight
                   );
-                  return `L${index * 10},${graphHeight - normalizedValue}`;
+                  return `L${index * 3},${graphHeight - normalizedValue}`;
                 })
                 .join(" ")
             }
@@ -151,11 +133,12 @@ const localStyles = StyleSheet.create({
     alignItems: "center",
   },
   ecgContainer: {
-    width: "80%",
-    height: "60%",
+    width: "90%",
+    height: graphHeight,
     backgroundColor: "#f0f0f0",
-    borderWidth: 2,
-    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: "black",
+    borderRadius: 10,
     overflow: "hidden",
     position: "relative",
     marginBottom: 20,

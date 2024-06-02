@@ -13,6 +13,7 @@ const RecommendationsScreen = ({ navigation }) => {
   useEffect(() => {
     FirebaseService.getPatientRecommendations(userData.ID).then((data) => {
       setRecommendations(data);
+      console.log(data);
     });
   }, []);
   if (recommendations === null || recommendations.length === 0) {
@@ -31,9 +32,9 @@ const RecommendationsScreen = ({ navigation }) => {
   }
   const RecommendationItem = ({ item }) => {
     const observations =
-      item.altele == null || item.altele.length === 0
+      item.observatii == null || item.observatii.length === 0
         ? "Fără observații"
-        : item.altele;
+        : item.observatii;
     return (
       <View style={styles.recommendationItem}>
         <Text style={styles.title}>{item.titlu}</Text>

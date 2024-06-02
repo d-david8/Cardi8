@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, StyleSheet, Text, TouchableOpacity } from "react-native";
+import { View, StyleSheet, Text } from "react-native";
 import { Ionicons } from "@expo/vector-icons";
 import * as Animatable from "react-native-animatable";
 import BottomMenu from "../components/BottomMenu";
@@ -12,44 +12,33 @@ import { useAuth } from "../contexts/AuthContext";
 import FirebaseService from "../services/FirebaseService";
 import Toast from "react-native-toast-message";
 import BluetoothSerial from "react-native-bluetooth-hc05";
-import { useRoute } from "@react-navigation/native";
-import { useFocusEffect } from "@react-navigation/native";
-
 const HomeScreen = ({ navigation }) => {
-  const route = useRoute();
   const [data, setData] = useState({
     heartRate: 0,
     temperature: 0,
     humidity: 0,
   });
   const [isMoving, setIsMoving] = useState(false);
-  const [masuratori, setMasuratori] = useState([]);
   const [isConnected, setIsConnected] = useState(false);
   const [isAlaramSet, setIsAlramSet] = useState(false);
   const { userData } = useAuth();
-
-  useFocusEffect(
-    React.useCallback(() => {
-      console.log("rr: ", route.name);
-      if (route.name === "Home") {
-        setMasuratori([]);
-        subscribeTo();
-      } else {
-        setMasuratori([]);
-        BluetoothSerial.unsubscribe();
-      }
-    }, [route])
-  );
+  let masuratori = [];
+  let lastTS = 0;
+  const delimiter = "#";
 
   subscribeTo = async () => {
-    const delimiter = "\n";
     await BluetoothSerial.subscribe(delimiter)
       .then(() => {
         console.log("Subscribed for data with delimiter", delimiter);
         setIsConnected(true);
+        dsiplaySuccessToast(
+          "Dispozitiv inteligent",
+          "Conexiunea s-a realizat cu success!"
+        );
       })
       .catch((err) => console.log("Error subscribing ", err));
-    BluetoothSerial.on("data", (data) => {
+
+    await BluetoothSerial.on("data", (data) => {
       if (data.data.indexOf("/") != -1) {
         console.log(data);
         let listData = data.data.split("/");
@@ -58,12 +47,12 @@ const HomeScreen = ({ navigation }) => {
         let hum = 0;
 
         if (
-          listData.length == 3 &&
+          listData.length == 4 &&
           listData[0].indexOf("NAN") == -1 &&
           listData[1].indexOf("NAN") == -1 &&
-          listData[2].indexOf("NAN") == -1
+          listData[2].indexOf("NAN") == -1 &&
+          parseInt(listData[3]) !== lastTS
         ) {
-          console.log("ldata: ", listData);
           hRate = parseInt(listData[0]);
           tmp = parseFloat(listData[2]);
           hum = parseFloat(listData[1]);
@@ -72,6 +61,9 @@ const HomeScreen = ({ navigation }) => {
             temperature: tmp,
             humidity: hum,
           });
+          console.log("setare", parseInt(listData[3]));
+          lastTS = parseInt(listData[3]);
+          console.log("last TS", lastTS);
           let currentDate = new Date();
           const dateString =
             ("0" + currentDate.getDate()).slice(-2) +
@@ -91,19 +83,24 @@ const HomeScreen = ({ navigation }) => {
             umid: hum,
             time_stamp: dateString,
           };
-          console.log("masuratori", masuratori);
-          setMasuratori((prev) => {
-            const updatedMasuratori = [...prev, newValues];
-            if (updatedMasuratori.length === 3) {
-              //saveMeasurement(updatedMasuratori);
-              return [];
-            }
-            return updatedMasuratori;
-          });
-          //verifyLimits();
+          console.log("nv: ", newValues);
+
+          console.log("aici:", masuratori);
+          if (masuratori.length === 2) {
+            saveMeasurement([...masuratori, newValues]);
+            //console.log("masuratori", masuratori);
+            console.log("salvare masuraori");
+            masuratori = [];
+          } else {
+            console.log("else");
+            masuratori.push(newValues);
+          }
+          verifyLimits();
         }
       }
     });
+
+    await BluetoothSerial.clear();
   };
 
   connectToDevice = async () => {
@@ -112,18 +109,14 @@ const HomeScreen = ({ navigation }) => {
         console.log("BluetoothSerial is not defined");
         return;
       }
-
       await BluetoothSerial.enable();
       const devices = await BluetoothSerial.list();
       console.log("Available devices:", devices);
-
       if (!devices || devices.length === 0) {
         console.log("No devices found");
         return;
       }
-
       const device = devices.find((d) => d.name === "HC-05");
-
       if (device) {
         console.log("Found device:", device);
         await BluetoothSerial.connect(device.id);
@@ -131,6 +124,7 @@ const HomeScreen = ({ navigation }) => {
         const connected = await BluetoothSerial.isConnected();
         if (connected) {
           console.log("Connected to device:", device.name);
+          subscribeTo();
         } else {
           console.log("Failed to connect to device");
         }
@@ -139,18 +133,47 @@ const HomeScreen = ({ navigation }) => {
       }
     } catch (error) {
       console.log("Error connecting to device:", error);
+      displayErrorToast("Eroare Bluetooth", "Va rugam sa va reconectati!");
     }
   };
 
   useEffect(() => {
     connectToDevice();
     return () => {
-      // Cleanup subscriptions and connections on component unmount
-      BluetoothSerial.disconnect();
       BluetoothSerial.unsubscribe();
+      BluetoothSerial.disconnect();
     };
   }, []);
 
+  const displayErrorToast = (type, message) => {
+    Toast.show({
+      type: "error",
+      position: "top",
+      text1: type,
+      text2: message,
+      text1Style: { fontSize: 15 },
+      text2Style: { fontSize: 15 },
+      visibilityTime: 10000,
+      autoHide: true,
+      topOffset: 40,
+      bottomOffset: 40,
+    });
+  };
+
+  const dsiplaySuccessToast = (type, message) => {
+    Toast.show({
+      type: "success",
+      position: "top",
+      text1: type,
+      text2: message,
+      text1Style: { fontSize: 15 },
+      text2Style: { fontSize: 15 },
+      visibilityTime: 10000,
+      autoHide: true,
+      topOffset: 40,
+      bottomOffset: 40,
+    });
+  };
   const displayAlertOnScreen = (alert) => {
     if (isAlaramSet) {
       return;
@@ -158,9 +181,11 @@ const HomeScreen = ({ navigation }) => {
     Toast.show({
       type: "info",
       position: "top",
-      text1: alert.tip,
-      text2: alert.descriere,
-      visibilityTime: 10000,
+      text1: alert.descriere.split("->")[0],
+      text2: alert.descriere.split("->")[1],
+      text1Style: { fontSize: 15 },
+      text2Style: { fontSize: 15 },
+      visibilityTime: 4000,
       autoHide: true,
       topOffset: 40,
       bottomOffset: 40,
@@ -305,7 +330,7 @@ const HomeScreen = ({ navigation }) => {
               " -> Limita depasita " +
               (data.heartRate < userData.limite_medic.puls_min_repaus
                 ? "inferior: "
-                : "superioar: ") +
+                : "superior: ") +
               data.temperature,
             stare: "Repaus",
             time_stamp: dateString,
@@ -341,7 +366,8 @@ const HomeScreen = ({ navigation }) => {
     }
   };
 
-  saveMeasurement = (measurements) => {
+  saveMeasurement = async (measurements) => {
+    console.log("salvare masuratori in db");
     const average = (values) =>
       (values.reduce((a, b) => a + b, 0) / values.length).toFixed(2);
     const [puls, temp, umid] = ["puls", "temp", "umid"].map((key) =>
@@ -349,10 +375,9 @@ const HomeScreen = ({ navigation }) => {
     );
     const time_stamp = measurements[measurements.length - 1].time_stamp;
     const newValues = { puls, temp, umid, time_stamp };
-    //console.log("userData", userData);
+    console.log(newValues);
     if (userData && newValues) {
       FirebaseService.addMeasurementToPatient(userData.ID, newValues);
-      setMasuratori([]);
     }
   };
   useEffect(() => {
@@ -367,10 +392,10 @@ const HomeScreen = ({ navigation }) => {
         const avg =
           movementData.reduce((a, b) => a + b, 0) / movementData.length;
         setIsMoving(avg > 12.0);
-        movementData.length = 0; // Clear the array for next batch
+        //console.log("moving updated");
+        movementData.length = 0;
       }
     });
-
     return () => {
       subscription.unsubscribe();
     };

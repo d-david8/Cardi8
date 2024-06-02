@@ -24,6 +24,8 @@ const SignUpScreen = () => {
   const sendEmail = () => {
     if (!email || !fisrstName || !lastName || !phone) {
       Toast.show({
+        text1Style: { fontSize: 15 },
+        text2Style: { fontSize: 15 },
         type: "error",
         text1: "Completati toate campurile",
       });
@@ -39,6 +41,8 @@ const SignUpScreen = () => {
     setPhone("");
 
     Toast.show({
+      text1Style: { fontSize: 15 },
+      text2Style: { fontSize: 15 },
       type: "success",
       text1: "Cererea a fost trimisa cu succes",
       text2: "Vei fi contactat in cel mai scurt timp",

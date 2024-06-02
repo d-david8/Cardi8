@@ -10,8 +10,8 @@ import {
 import { useAuth } from "../contexts/AuthContext";
 import { authentication } from "../firebase/config";
 import { signOut } from "firebase/auth";
-import { set } from "firebase/database";
 import { useEffect, useState } from "react";
+import BluetoothSerial from "react-native-bluetooth-hc05";
 
 const ProfileScreen = () => {
   const { setLoggedInUser, userData, setUserData } = useAuth();
@@ -22,6 +22,8 @@ const ProfileScreen = () => {
       .then(() => {
         setLoggedInUser(null);
         setUserData(null);
+        BluetoothSerial.unsubscribe();
+        BluetoothSerial.off();
       })
       .catch((err) => {
         console.log(err);
