@@ -40,7 +40,7 @@ const HomeScreen = ({ navigation }) => {
 
     await BluetoothSerial.on("data", (data) => {
       if (data.data.indexOf("/") != -1) {
-        console.log(data);
+        console.log("date modul", data);
         let listData = data.data.split("/");
         let hRate = 0;
         let tmp = 0;
@@ -61,9 +61,9 @@ const HomeScreen = ({ navigation }) => {
             temperature: tmp,
             humidity: hum,
           });
-          console.log("setare", parseInt(listData[3]));
+          //console.log("setare", parseInt(listData[3]));
           lastTS = parseInt(listData[3]);
-          console.log("last TS", lastTS);
+          //console.log("last TS", lastTS);
           let currentDate = new Date();
           const dateString =
             ("0" + currentDate.getDate()).slice(-2) +
@@ -83,8 +83,7 @@ const HomeScreen = ({ navigation }) => {
             umid: hum,
             time_stamp: dateString,
           };
-          console.log("nv: ", newValues);
-
+          //console.log("nv: ", newValues);
           console.log("aici:", masuratori);
           if (masuratori.length === 2) {
             saveMeasurement([...masuratori, newValues]);
@@ -199,7 +198,13 @@ const HomeScreen = ({ navigation }) => {
   verifyLimits = () => {
     console.log("Verifying limits");
     console.log(isMoving);
-    if (userData.limite_medic != null && isAlaramSet == false) {
+    console.log("LIMITE: ", userData.limite_medic);
+    if (
+      userData &&
+      userData.hasOwnProperty("limite_medic") &&
+      userData.limite_medic != null &&
+      isAlaramSet == false
+    ) {
       let currentDate = new Date();
       const dateString =
         ("0" + currentDate.getDate()).slice(-2) +
@@ -383,16 +388,13 @@ const HomeScreen = ({ navigation }) => {
   useEffect(() => {
     const movementData = [];
     setUpdateIntervalForType(SensorTypes.accelerometer, 1000);
-
     const subscription = accelerometer.subscribe(({ x, y, z }) => {
       const speed = Math.sqrt(x * x + y * y + z * z);
       movementData.push(parseFloat(speed.toFixed(2)));
-
       if (movementData.length >= 10) {
         const avg =
           movementData.reduce((a, b) => a + b, 0) / movementData.length;
         setIsMoving(avg > 12.0);
-        //console.log("moving updated");
         movementData.length = 0;
       }
     });
@@ -400,6 +402,7 @@ const HomeScreen = ({ navigation }) => {
       subscription.unsubscribe();
     };
   }, []);
+
   return (
     <View style={styles.container}>
       <View style={styles.topLeft}>

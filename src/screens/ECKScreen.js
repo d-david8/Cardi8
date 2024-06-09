@@ -56,7 +56,7 @@ const EcgScreen = ({ navigation }) => {
   };
   const handleStartStop = () => {
     if (isGenerating) {
-      BluetoothSerial.write("a");
+      //BluetoothSerial.write("a");
       console.log(ecgData);
       let currentDate = new Date();
       const dateString =
@@ -102,8 +102,8 @@ const EcgScreen = ({ navigation }) => {
                 .map((value, index) => {
                   const normalizedValue = normalizeValue(
                     value,
-                    0,
-                    700,
+                    200,
+                    800,
                     0,
                     graphHeight
                   );
